@@ -141,47 +141,48 @@ const ShareLinks = () => {
                         </div>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                         {filteredLinks.map(link => (
                             <div
                                 key={link.id}
                                 onClick={() => navigate(`/shares/${link.id}`)}
-                                className="glass-panel p-5 space-y-4 group hover:border-violet-500/30 transition-all duration-300 cursor-pointer"
+                                className="glass-panel p-5 space-y-4 group hover:-translate-y-1 hover:shadow-xl hover:shadow-violet-500/5 transition-all duration-300 cursor-pointer border border-white/10 hover:border-violet-500/30 relative"
                             >
                                 <div className="flex justify-between items-start">
-                                    <div className="flex items-center gap-3">
-                                        <div className={`p-2 rounded-lg ${link.is_active ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'}`}>
+                                    <div className="flex items-center gap-3 min-w-0">
+                                        <div className={`p-2 rounded-lg shrink-0 ${link.is_active ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'}`}>
                                             <Globe size={18} />
                                         </div>
-                                        <div>
+                                        <div className="min-w-0">
                                             <div className="flex items-center gap-2">
                                                 <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${link.is_active ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'}`}>
                                                     {link.is_active ? 'Active' : 'Expired'}
                                                 </span>
-                                                {link.has_password && <Lock size={12} className="text-yellow-500" />}
+                                                {link.has_password && <Lock size={12} className="text-yellow-500 shrink-0" />}
                                             </div>
-                                            <div className="text-xs text-gray-500 font-mono mt-1 truncate w-32" title={link.id}>
+                                            <div className="text-xs text-gray-500 font-mono mt-1 truncate" title={link.id}>
                                                 {link.id}
                                             </div>
                                         </div>
                                     </div>
-                                    <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                                    <div className="flex gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
                                         <button
-                                            onClick={() => copyLink(link.id)}
+                                            onClick={(e) => { e.stopPropagation(); copyLink(link.id); }}
                                             className="p-1.5 bg-white/5 hover:bg-violet-500/20 rounded-lg text-gray-400 hover:text-violet-400 transition-colors"
                                             title="Copy Link"
                                         >
                                             {copiedId === link.id ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
                                         </button>
                                         <button
-                                            onClick={() => window.open(`${window.location.origin}/share/download/${link.id}`, '_blank')}
+                                            onClick={(e) => { e.stopPropagation(); window.open(`${window.location.origin}/share/download/${link.id}`, '_blank'); }}
                                             className="p-1.5 bg-white/5 hover:bg-blue-500/20 rounded-lg text-gray-400 hover:text-blue-400 transition-colors"
                                             title="Visit"
                                         >
                                             <ExternalLink size={14} />
                                         </button>
                                         <button
-                                            onClick={() => handleDelete(link.id)}
+                                            onClick={(e) => { e.stopPropagation(); handleDelete(link.id); }}
                                             className="p-1.5 bg-white/5 hover:bg-red-500/20 rounded-lg text-gray-400 hover:text-red-400 transition-colors"
                                             title="Delete"
                                         >
@@ -196,14 +197,14 @@ const ShareLinks = () => {
                                             <Download size={10} /> Downloads
                                         </div>
                                         <div className="text-sm font-medium text-gray-200">
-                                            {link.download_count} <span className="text-gray-600">/ {link.max_downloads}</span>
+                                            {link.download_count} <span className="text-gray-600">/ {link.max_downloads === -1 ? '∞' : link.max_downloads}</span>
                                         </div>
                                     </div>
                                     <div className="bg-white/5 rounded-lg p-2 space-y-1">
                                         <div className="text-[10px] text-gray-500 uppercase flex items-center gap-1">
                                             <Clock size={10} /> Expires
                                         </div>
-                                        <div className="text-xs font-medium text-gray-200">
+                                        <div className="text-xs font-medium text-gray-200 truncate">
                                             {new Date(link.expires_at).toLocaleDateString()}
                                         </div>
                                     </div>
@@ -221,7 +222,7 @@ const ShareLinks = () => {
                     </div>
                 )}
             </div>
-        </div>
+        </div >
     );
 };
 

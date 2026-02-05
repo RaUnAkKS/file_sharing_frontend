@@ -16,7 +16,10 @@ const Navbar = ({ searchTerm, setSearchTerm, user }) => {
 
     return (
         <div className="glass-panel p-4 sticky top-6 z-50 mb-8 flex justify-between items-center bg-card/80 backdrop-blur-md border hover:border-white/20 transition-all">
-            <div className="flex items-center gap-3">
+            <div
+                className="flex items-center gap-3 cursor-pointer"
+                onClick={() => navigate('/')}
+            >
                 <div className="w-10 h-10 bg-gradient-to-tr from-violet-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-violet-500/20">
                     <File className="text-white" size={20} />
                 </div>

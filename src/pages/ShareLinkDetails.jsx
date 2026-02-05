@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../api/axios';
+import { getFileUrl } from '../utils/fileUrl';
 import Navbar from '../components/Navbar';
 import Button from '../components/ui/Button';
 import { File, ArrowLeft, Download, Eye, Grid, List } from 'lucide-react';
@@ -13,6 +14,7 @@ const ShareLinkDetails = () => {
     const [cursor, setCursor] = useState(null);
     const [hasMore, setHasMore] = useState(false);
     const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
+    const [totalCount, setTotalCount] = useState(0);
 
     useEffect(() => {
         fetchFiles();
@@ -24,9 +26,15 @@ const ShareLinkDetails = () => {
             const res = await api.get(url);
 
             if (nextCursor) {
-                setFiles(prev => [...prev, ...res.data.results]);
+                // If nested results exist, use them, else fallback to standard results or empty array
+                const newFiles = res.data.results?.results || res.data.results || [];
+                setFiles(prev => [...prev, ...newFiles]);
             } else {
-                setFiles(res.data.results);
+                const resultsData = res.data.results;
+                const newFiles = resultsData?.results || resultsData || [];
+                setFiles(newFiles);
+                // Try to get count from nested structure or fallback
+                setTotalCount(resultsData?.count || newFiles.length || 0);
             }
 
             setHasMore(!!res.data.next);
@@ -98,12 +106,12 @@ const ShareLinkDetails = () => {
                     </div>
                 ) : (
                     <>
-                        <div className={viewMode === 'grid' ? "grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4" : "space-y-2"}>
+                        <div className={viewMode === 'grid' ? "grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4" : "space-y-3"}>
                             {files.map(file => (
-                                <div key={file.id} className={`glass-panel group relative overflow-hidden transition-all duration-300 ${viewMode === 'list' ? 'flex items-center p-3 gap-4' : 'aspect-square flex flex-col'}`}>
+                                <div key={file.id} className={`glass-panel group relative overflow-hidden transition-all duration-300 ${viewMode === 'list' ? 'flex items-center p-3 gap-4 hover:border-violet-500/30' : 'aspect-square flex flex-col'}`}>
 
                                     {/* Preview / Icon Area */}
-                                    <div className={viewMode === 'list' ? "w-10 h-10 shrink-0 bg-white/5 rounded-lg flex items-center justify-center" : "flex-1 bg-black/20 flex items-center justify-center relative overflow-hidden"}>
+                                    <div className={`relative overflow-hidden flex items-center justify-center ${viewMode === 'list' ? "w-10 h-10 shrink-0 bg-white/5 rounded-lg" : "flex-1 bg-black/20"}`}>
                                         {file.content_type?.startsWith('image/') ? (
                                             <img
                                                 src={file.file}
@@ -114,40 +122,33 @@ const ShareLinkDetails = () => {
                                             <File className="text-violet-400" size={viewMode === 'list' ? 20 : 32} />
                                         )}
 
-                                        {/* Grid View Overlay */}
-                                        {viewMode === 'grid' && (
-                                            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-sm">
-                                                <a
-                                                    href={file.file}
-                                                    target="_blank"
-                                                    rel="noreferrer"
-                                                    className="p-2 bg-white/10 rounded-full hover:bg-white/20 text-white transition-colors"
-                                                    title="View Original"
-                                                >
-                                                    <Eye size={18} />
-                                                </a>
-                                            </div>
-                                        )}
+                                        {/* Overlay (Grid & List) */}
+                                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm cursor-pointer"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                window.open(getFileUrl(file.file), '_blank');
+                                            }}
+                                        >
+                                            <Eye size={viewMode === 'list' ? 16 : 24} className="text-white" />
+                                        </div>
                                     </div>
 
                                     {/* Info Area */}
                                     <div className={`p-3 ${viewMode === 'grid' ? 'bg-card/50 border-t border-white/5' : 'flex-1 min-w-0 flex items-center justify-between'}`}>
-                                        <div className="truncate">
+                                        <div className="truncate pr-4">
                                             <p className="text-sm font-medium text-gray-200 truncate" title={file.original_filename}>{file.original_filename}</p>
                                             <p className="text-xs text-gray-500 mt-0.5">{formatSize(file.file_size)}</p>
                                         </div>
 
-                                        {/* List View Actions */}
                                         {viewMode === 'list' && (
-                                            <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <a
-                                                    href={`${api.defaults.baseURL}${file.file}`}
-                                                    target="_blank"
-                                                    rel="noreferrer"
-                                                    className="p-2 hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition-colors"
+                                            <div className="flex items-center gap-2">
+                                                <button
+                                                    onClick={() => window.open(getFileUrl(file.file), '_blank')}
+                                                    className="p-2 bg-white/5 hover:bg-violet-500/20 rounded-lg text-gray-400 hover:text-white transition-colors border border-white/5"
+                                                    title="View File"
                                                 >
                                                     <Eye size={18} />
-                                                </a>
+                                                </button>
                                             </div>
                                         )}
                                     </div>

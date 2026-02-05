@@ -18,8 +18,27 @@ const PublicDownload = () => {
 
     const checkAccess = async () => {
         try {
-            const res = await api.get(`share/status/${id}/`);
-            if (res.data.has_password) {
+            const res = await api.get(`share/status/${id}/`, {
+                withCredentials: true
+            });
+            const { status: linkStatus, has_password, is_unlocked } = res.data;
+
+            if (linkStatus === 'limit_reached') {
+                setStatus('error');
+                setError("Download limit reached");
+                return;
+            } else if (linkStatus === 'expired') {
+                setStatus('error');
+                setError("Link has expired");
+                return;
+            } else if (linkStatus === 'inactive') {
+                setStatus('error');
+                setError("Link is inactive");
+                return;
+            }
+
+            // If it has password BUT is already unlocked in session, go to ready
+            if (has_password && !is_unlocked) {
                 setStatus('locked');
             } else {
                 setStatus('ready');

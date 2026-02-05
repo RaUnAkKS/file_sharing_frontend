@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
+import { getFileUrl } from '../utils/fileUrl';
 import Button from '../components/ui/Button';
 import ShareModal from '../components/ShareModal';
 import Navbar from '../components/Navbar';
@@ -39,14 +40,39 @@ const Dashboard = () => {
         }
     };
 
+    const [nextCursor, setNextCursor] = useState(null);
+
     useEffect(() => {
         fetchFiles();
     }, []);
 
-    const fetchFiles = async () => {
+    const fetchFiles = async (cursor = null) => {
         try {
-            const res = await api.get('files/list/');
-            setFiles(res.data);
+            const url = cursor ? cursor : 'files/list/';
+            // If it's a cursor URL (absolute), we might need to handle it, but axios baseURL handles 'files/list/'
+            // The cursor returned by backend usually is full URL. We should use it carefully.
+            // If using axios with baseURL, full URL might be issues if duplicates. 
+            // Better to strip baseURL if present or just use the path.
+
+            // Actually, cursor returned by DRF is usually absolute URL. 
+            // api.get(url) might append baseURL if url is not absolute.
+            // If cursor is absolute, axios handles it?
+
+            const res = await api.get(url);
+
+            // Checks if paginated response
+            if (res.data.results) {
+                if (cursor) {
+                    setFiles(prev => [...prev, ...res.data.results]);
+                } else {
+                    setFiles(res.data.results);
+                }
+                setNextCursor(res.data.next);
+            } else {
+                // Fallback for non-paginated
+                setFiles(res.data);
+                setNextCursor(null);
+            }
         } catch (error) {
             console.error("Failed to fetch files", error);
         } finally {
@@ -118,14 +144,15 @@ const Dashboard = () => {
         }
     };
 
+
+
     // Component for handling file previews to manage image state properly
     const FilePreview = ({ file }) => {
         const [imgError, setImgError] = useState(false);
         const ext = file.original_filename.split('.').pop().toLowerCase();
 
-        // Full URL construction with cache busting and IP usage
-        const baseUrl = file.file.startsWith('http') ? file.file : `http://127.0.0.1:8000${file.file}`;
-        const fileUrl = `${baseUrl}?t=${new Date(file.uploaded_at).getTime()}`;
+        const fileSrc = getFileUrl(file.file);
+        const fileUrl = `${fileSrc}?t=${new Date(file.uploaded_at).getTime()}`;
 
         if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext) && !imgError) {
             return (
@@ -240,81 +267,40 @@ const Dashboard = () => {
                         </div>
                     </div>
                 ) : (
-
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 grid-flow-dense pb-20">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 pb-20">
                         {filteredFiles.map(file => {
                             // IMPROVED LOGIC: Check content_type OR extension
                             const isImage = (file.content_type && file.content_type.startsWith('image/')) ||
                                 ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(file.original_filename.split('.').pop().toLowerCase());
 
-
-
                             return (
                                 <div
                                     key={file.id}
-                                    className={`glass-panel p-3 flex group hover:-translate-y-1 hover:shadow-xl hover:shadow-violet-500/5 transition-all duration-300 border border-white/10 hover:border-violet-500/30 relative overflow-hidden cursor-pointer ${isImage ? 'flex-col gap-3 h-auto min-h-[250px] col-span-1' : 'flex-row items-center justify-between gap-3 col-span-2 h-20'
-                                        }`}
-                                    onClick={() => window.open(file.file.startsWith('http') ? file.file : `http://127.0.0.1:8000${file.file}`, '_blank')}
+                                    className="glass-panel p-3 flex flex-col gap-3 group hover:-translate-y-1 hover:shadow-xl hover:shadow-violet-500/5 transition-all duration-300 border border-white/10 hover:border-violet-500/30 relative overflow-hidden cursor-pointer h-[240px]"
+                                    onClick={() => {
+                                        let fileSrc = file.file;
+                                        if (!fileSrc.startsWith('http')) {
+                                            const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api/';
+                                            const rootUrl = apiBase.replace(/\/api\/?$/, '');
+                                            fileSrc = `${rootUrl}${file.file}`;
+                                        }
+                                        window.open(fileSrc, '_blank');
+                                    }}
                                 >
+                                    {/* Preview Area */}
+                                    <div className="relative w-full flex-1 bg-white/5 rounded-lg overflow-hidden group-hover:bg-violet-500/10 transition-colors flex items-center justify-center">
+                                        <FilePreview file={file} />
+                                    </div>
 
+                                    {/* Info Area */}
+                                    <div className="space-y-1 w-full shrink-0">
+                                        <h4 className="font-medium text-gray-200 truncate text-sm" title={file.original_filename}>{file.original_filename}</h4>
 
-                                    {isImage ? (
-                                        // Image Layout (Vertical Stack)
-                                        <>
-                                            <div className="relative w-full aspect-video bg-white/5 rounded-lg overflow-hidden group-hover:bg-violet-500/10 transition-colors">
-                                                <div className="absolute inset-0 flex items-center justify-center">
-                                                    <FilePreview file={file} />
-                                                </div>
-                                            </div>
-
-                                            <div className="space-y-2 w-full">
-                                                <h4 className="font-medium text-gray-200 truncate text-sm" title={file.original_filename}>{file.original_filename}</h4>
-
-                                                <div className="flex justify-between items-center text-[10px] text-gray-500 border-t border-white/5 pt-2">
-                                                    <div className="flex items-center gap-2">
-                                                        <div className="flex items-center gap-1">
-                                                            <Clock size={10} />
-                                                            {new Date(file.uploaded_at).toLocaleDateString()}
-                                                        </div>
-                                                        <span className="bg-white/5 px-1.5 py-0.5 rounded text-gray-400">
-                                                            {formatSize(file.file_size)}
-                                                        </span>
-                                                    </div>
-
-                                                    <div className="flex gap-1">
-                                                        <button
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                handleDelete(file.id);
-                                                            }}
-                                                            className="p-1.5 bg-white/5 hover:bg-red-500/20 rounded-lg text-gray-400 hover:text-red-400 transition-colors border border-white/5"
-                                                            title="Delete file"
-                                                        >
-                                                            <Trash2 size={14} />
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </>
-                                    ) : (
-                                        // Non-Image Layout (Rectangle, Horizontal)
-                                        <>
-                                            <div className="flex items-center gap-3 flex-1 min-w-0">
-                                                <div className="p-2 bg-white/5 rounded-lg group-hover:bg-violet-500/10 transition-colors shrink-0">
-                                                    <FilePreview file={file} />
-                                                </div>
-                                                <div className="flex flex-col min-w-0">
-                                                    <h4 className="font-medium text-gray-200 truncate text-sm" title={file.original_filename}>{file.original_filename}</h4>
-                                                    <div className="flex items-center gap-2 text-[10px] text-gray-500">
-                                                        <span className="bg-white/5 px-1.5 py-0.5 rounded text-gray-400">
-                                                            {formatSize(file.file_size)}
-                                                        </span>
-                                                        <span className="flex items-center gap-1">
-                                                            <Clock size={10} />
-                                                            {new Date(file.uploaded_at).toLocaleDateString()}
-                                                        </span>
-                                                    </div>
-                                                </div>
+                                        <div className="flex justify-between items-center text-[10px] text-gray-500 pt-2 border-t border-white/5">
+                                            <div className="flex items-center gap-2">
+                                                <span className="bg-white/5 px-1.5 py-0.5 rounded text-gray-400">
+                                                    {formatSize(file.file_size)}
+                                                </span>
                                             </div>
 
                                             <button
@@ -322,16 +308,29 @@ const Dashboard = () => {
                                                     e.stopPropagation();
                                                     handleDelete(file.id);
                                                 }}
-                                                className="p-2 bg-white/5 hover:bg-red-500/20 rounded-lg text-gray-400 hover:text-red-400 transition-colors border border-white/5 shrink-0"
+                                                className="p-1.5 bg-white/5 hover:bg-red-500/20 rounded-lg text-gray-400 hover:text-red-400 transition-colors border border-white/5"
                                                 title="Delete file"
                                             >
-                                                <Trash2 size={16} />
+                                                <Trash2 size={14} />
                                             </button>
-                                        </>
-                                    )}
+                                        </div>
+                                    </div>
                                 </div>
                             );
                         })}
+                    </div>
+                )}
+
+                {nextCursor && (
+                    <div className="flex justify-center pb-10 mt-4">
+                        <Button
+                            variant="secondary"
+                            disabled={loading}
+                            onClick={() => fetchFiles(nextCursor)}
+                            className="bg-white/5 hover:bg-white/10 text-white min-w-[150px]"
+                        >
+                            {loading ? "Loading..." : "Load More"}
+                        </Button>
                     </div>
                 )}
             </div>
