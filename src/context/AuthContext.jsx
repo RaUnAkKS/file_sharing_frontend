@@ -10,12 +10,21 @@ export const AuthProvider = ({ children }) => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const token = localStorage.getItem('access_token');
-        if (token) {
-            // Optional: Validate token or fetch user profile here
-            setUser({ token });
-        }
-        setLoading(false);
+        const checkAuth = async () => {
+            const token = localStorage.getItem('access_token');
+            if (token) {
+                try {
+                    const res = await api.get('profile/');
+                    setUser({ token, ...res.data });
+                } catch (error) {
+                    console.error("Failed to fetch user profile", error);
+                    // If profile fetch fails (e.g. invalid token), maybe logout?
+                    // For now, keep token but user data might be incomplete.
+                }
+            }
+            setLoading(false);
+        };
+        checkAuth();
     }, []);
 
     const login = async (email, password) => {
@@ -23,7 +32,16 @@ export const AuthProvider = ({ children }) => {
             const response = await api.post('token/', { email, password });
             localStorage.setItem('access_token', response.data.access);
             localStorage.setItem('refresh_token', response.data.refresh);
-            setUser({ token: response.data.access, email });
+
+            // After token, fetch profile
+            try {
+                const profileRes = await api.get('profile/');
+                setUser({ token: response.data.access, ...profileRes.data });
+            } catch (profileError) {
+                console.error("Profile fetch failed after login", profileError);
+                setUser({ token: response.data.access, email }); // Fallback
+            }
+
             return { success: true };
         } catch (error) {
             console.error("Login failed", error);
