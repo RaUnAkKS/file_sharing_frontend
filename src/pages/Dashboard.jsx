@@ -282,9 +282,42 @@ const Dashboard = () => {
                                         if (!fileSrc.startsWith('http')) {
                                             const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api/';
                                             const rootUrl = apiBase.replace(/\/api\/?$/, '');
-                                            fileSrc = `${rootUrl}${file.file}`;
+                                            // Ensure fileSrc starts with / if needed
+                                            const cleanPath = file.file.startsWith('/') ? file.file : `/${file.file}`;
+                                            fileSrc = `${rootUrl}${cleanPath}`;
                                         }
-                                        window.open(fileSrc, '_blank');
+
+                                        // Cloudinary URL Correction Helper (Simpler Version)
+                                        const fixCloudinaryUrl = (url, filename) => {
+                                            if (!url.includes('cloudinary.com')) return url;
+
+                                            const parts = filename.split('.');
+                                            const ext = parts.length > 1 ? parts.pop().toLowerCase() : '';
+
+                                            // 1. Ensure extension is present in URL
+                                            let fixedUrl = url;
+                                            if (!fixedUrl.split('/').pop().includes('.')) {
+                                                fixedUrl = `${fixedUrl}.${ext}`;
+                                            }
+
+                                            // 2. RESOURCE TYPE SWAPPING REMOVED:
+                                            // We no longer force /video/ or /raw/ because it breaks existing files that might be 'image' type.
+                                            // The backend storage should handle correct URLs for new uploads.
+
+                                            return fixedUrl;
+                                        };
+
+                                        fileSrc = fixCloudinaryUrl(fileSrc, file.original_filename);
+
+                                        console.log("Opening File URL:", fileSrc); // Debugging
+
+                                        // Ensure the URL is properly encoded to handle spaces and special characters
+                                        try {
+                                            const urlObj = new URL(fileSrc);
+                                            window.open(urlObj.href, '_blank');
+                                        } catch (e) {
+                                            window.open(fileSrc, '_blank');
+                                        }
                                     }}
                                 >
                                     {/* Preview Area */}
